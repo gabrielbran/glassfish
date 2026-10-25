@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.atlas.hybrid</groupId>
+        <artifactId>atlas-hybrid-parent</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>atlas-hybrid-demo-war</artifactId>
+    <packaging>war</packaging>
+    <name>Atlas Hybrid :: Demo Jakarta EE application</name>
+    <description>Standard Jakarta EE 11 WAR whose business services are provided by OSGi plugins</description>
+
+    <dependencies>
+        <!-- Packaged in WEB-INF/lib: the CDI extension must live in the application -->
+        <dependency>
+            <groupId>org.atlas.hybrid</groupId>
+            <artifactId>atlas-hybrid-bridge</artifactId>
+        </dependency>
+
+        <!-- Provided: the contract is loaded from its OSGi bundle, never from the WAR (ADR-003) -->
+        <dependency>
+            <groupId>org.atlas.hybrid</groupId>
+            <artifactId>atlas-hybrid-greeting-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.platform</groupId>
+            <artifactId>jakarta.jakartaee-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <finalName>atlas-hybrid-demo</finalName>
+    </build>
+</project>
