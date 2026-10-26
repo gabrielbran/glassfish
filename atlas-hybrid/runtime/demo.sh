@@ -36,10 +36,15 @@ log "2. Hot-install the English plugin (higher service.ranking), no application 
 asadmin deploy --force=true --type=osgi --name=atlas-plugin-en "$PLUGIN_EN"
 expect "higher ranking plugin now serves the contract" "Gabriel" 200 '"pluginId":"greeting-en"'
 expect "filtered injection point still gets greeting-es" "es/Gabriel" 200 '"pluginId":"greeting-es"'
+expect "Instance.select(PluginId) chooses greeting-es by id" "plugin/greeting-es/Gabriel" 200 '"pluginId":"greeting-es"'
+expect "static @PluginId(\"greeting-en\") injection" "en/Gabriel" 200 '"pluginId":"greeting-en"'
+expect "embedded commons-text (WordUtils) inside the plugin" "en/aNA%20mARIA" 200 'Hello, Ana Maria!'
+expect "plugin id is compared literally, not as LDAP filter" "plugin/*/Gabriel" 503 'atlas.plugin.id=*'
 
 log "3. Remove the English plugin: automatic fallback"
 asadmin undeploy atlas-plugin-en
 expect "falls back to greeting-es" "Gabriel" 200 '"pluginId":"greeting-es"'
+expect "lookup by the removed plugin id answers 503" "plugin/greeting-en/Gabriel" 503 'atlas.plugin.id=greeting-en'
 
 log "4. Remove every plugin: the application degrades gracefully"
 asadmin undeploy atlas-plugin-es

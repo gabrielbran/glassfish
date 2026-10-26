@@ -152,6 +152,34 @@ class OsgiServiceRegistryTest {
     }
 
     @Test
+    void pluginIdSelectsByPropertyAndFollowsItsLifecycle() {
+        Greeter english = (Greeter) registry.proxyForPluginId(Greeter.class, "en");
+        assertThrows(ServiceUnavailableException.class, () -> english.greet("Ana"), "plugin not installed yet");
+
+        register(name -> "Hola " + name, 50, "es");
+        ServiceRegistration<?> en1 = register(name -> "Hello " + name, 10, "en");
+        assertEquals("Hello Ana", english.greet("Ana"), "the id wins over a higher ranked plugin of another id");
+
+        ServiceRegistration<?> en2 = register(name -> "Hi " + name, 20, "en");
+        assertEquals("Hi Ana", english.greet("Ana"), "best ranked service among those with the id");
+
+        en2.unregister();
+        en1.unregister();
+        assertThrows(ServiceUnavailableException.class, () -> english.greet("Ana"));
+    }
+
+    @Test
+    void pluginIdIsComparedLiterallyNotAsLdapFilter() {
+        register(name -> "Hola " + name, 0, "es");
+
+        Greeter injected = (Greeter) registry.proxyForPluginId(Greeter.class, "*");
+        Greeter injectedFilter = (Greeter) registry.proxyForPluginId(Greeter.class, "x)(objectClass=*");
+
+        assertThrows(ServiceUnavailableException.class, () -> injected.greet("Ana"));
+        assertThrows(ServiceUnavailableException.class, () -> injectedFilter.greet("Ana"));
+    }
+
+    @Test
     void stoppedContractBundleNeverServesStaleServices() throws Exception {
         // Simulates the contract bundle: the tracker listens on its context, as in GlassFish
         Bundle contract = installEmptyBundle("contract");

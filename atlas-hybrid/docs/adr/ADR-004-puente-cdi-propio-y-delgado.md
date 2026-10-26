@@ -16,11 +16,11 @@ Necesitamos que una aplicación Jakarta EE 11 inyecte servicios OSGi con CDI y t
 Construir un **puente propio, mínimo y unidireccional** (la aplicación consume plugins), empaquetado como JAR en `WEB-INF/lib`:
 
 - Una **extensión CDI portable** (estándar Jakarta EE, sin API propietaria de Weld ni de GlassFish).
-- `@OsgiService(filter, timeout)` como único punto de contacto en el código de negocio.
+- `@OsgiService(filter, timeout)` como único punto de contacto en el código de negocio, y `@PluginId` (miembro `@Nonbinding`) para elegir un plugin por id, de forma estática o con `Instance.select(...)`.
 - **Proxies dinámicos** respaldados por `ServiceTracker` y compartidos por clave: el servicio se resuelve en cada llamada.
 - Validación del `BundleContext` antes de cada uso, para no servir nunca servicios obsoletos.
 - Cierre de todos los trackers en `BeforeShutdown`.
-- **Límite de complejidad:** si el puente supera unas pocas miles de líneas, hay que revisar este ADR. Hoy son unas 330 líneas de código de producción (unas 520 con comentarios).
+- **Límite de complejidad:** si el puente supera unas pocas miles de líneas, hay que revisar este ADR. Hoy son unas 450 líneas de código de producción (unas 720 con comentarios).
 
 La dirección inversa (publicar beans EE como servicios OSGi) y los WAB **no** forman parte del alcance hasta que exista un caso real.
 
@@ -35,11 +35,11 @@ La dirección inversa (publicar beans EE como servicios OSGi) y los WAB **no** f
 
 ## Consecuencias
 
-- **Positivas:** funciona sobre GlassFish 8.0.5 sin cambios en el servidor; probado con 9 tests unitarios sobre Felix embebido y con la demo extremo a extremo.
+- **Positivas:** funciona sobre GlassFish 8.0.5 sin cambios en el servidor; probado con 11 tests unitarios sobre Felix embebido y con la demo extremo a extremo.
 - **Negativas:** solo procesa puntos de inyección estáticos (para los dinámicos está `OsgiServices.proxy`). Obtener el `BundleContext` a partir del bundle del contrato es una convención de Atlas.
 - **Futuro:** si el puente demuestra su valor, puede proponerse a la comunidad GlassFish como sucesor ligero de FighterFish.
 
 ## Verificación
 
-- `mvn install`: 9 tests, entre ellos `stoppedContractBundleNeverServesStaleServices`, que reproduce el defecto del servicio zombi.
-- `runtime/demo.sh`: 9 verificaciones en GlassFish real.
+- `mvn install`: 11 tests, entre ellos `stoppedContractBundleNeverServesStaleServices`, que reproduce el defecto del servicio zombi.
+- `runtime/demo.sh`: 14 verificaciones en GlassFish real.

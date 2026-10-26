@@ -16,6 +16,9 @@
 | 6 | Declarative Services funciona en GlassFish 8 | ✅ Sí, desplegando Felix SCR 2.2.12 y ajustando la configuración del dominio (H-1) |
 | 7 | El contrato se puede actualizar en caliente | ❌ **No, por diseño de OSGi** (enlace del import dinámico). Hay que redesplegar los dependientes (H-3, ADR-003) |
 | 8 | El cierre de la aplicación libera los recursos OSGi | ✅ El log muestra *"Atlas bridge: OSGi service trackers closed"* en cada redespliegue o retirada de la WAR |
+| 9 | Se puede elegir un plugin por id con `@Any Instance<Contrato>` + `select(PluginId.Literal.of(id))` | ✅ Confirmada: Weld pasa los qualifiers seleccionados al `InjectionPoint` del bean sintético (miembro `@Nonbinding`) |
+| 10 | Un plugin puede empaquetar sus propias dependencias sin desplegarlas aparte | ✅ Confirmada: `commons-text` 1.13 (+ `commons-lang3`) embebidas con bnd `-conditionalpackage`, sin exportarlas |
+| 11 | Un plugin puede usar la persistencia del servidor dentro de la transacción de la aplicación | ✅ Confirmada para JDBC: `DataSource` por JNDI dentro de la JTA del llamante, y el rollback revierte el INSERT del plugin (H-6). JPA dentro del plugin: no probado |
 
 ## 2. Ejecución de la demo (GlassFish 8.0.5)
 
@@ -70,6 +73,29 @@ Tiempos orientativos: despliegue completo (`deploy.sh`, 7 artefactos) ≈ 9 s; e
 
 Esto impide usar la sintaxis `version:List<Version>="1.8,9,..."`. Solución: una cláusula por versión (`version:Version=21`), semánticamente equivalente.
 
+### H-5. GlassFish entrega a la extensión los puntos de inyección de sus propias librerías (defecto del puente, corregido)
+
+- **Síntoma:** la primera versión de `@PluginId` registró beans para `IdentityStoreHandler`, `jakarta.mvc.Models` y `ValidatorFactory`.
+- **Causa:** en GlassFish **todas** las APIs vienen de bundles OSGi, y las bean archives del servidor (Soteria, Krazo…) declaran sus propios `Instance<...>`. La extensión de la aplicación también observa esos puntos de inyección.
+- **Corrección:** solo cuentan los puntos de inyección declarados en clases que **no** vienen de un bundle, es decir, las clases de la aplicación. Tras el cambio, el log muestra un único bean `@PluginId`, el de `GreetingService`.
+
+### H-6. Persistencia desde un plugin: JNDI y JTA del servidor (experimento)
+
+Se hizo con un plugin de prueba temporal (no incluido en el repositorio) llamado desde un endpoint `@Transactional` de la WAR, usando Derby (`asadmin start-database`) y `jdbc/__default`.
+
+| Prueba | Resultado |
+|---|---|
+| `new InitialContext().lookup("jdbc/__default")` dentro de la llamada | ✅ `com.sun.gjc.spi.jdbc40.DataSource40` |
+| `lookup("java:appserver/TransactionManager")` dentro de la llamada | ✅ Estado `0` (ACTIVE) dentro de `@Transactional`; `6` (NO_TRANSACTION) fuera |
+| INSERT del plugin en una transacción que confirma | ✅ Persistido |
+| INSERT del plugin en una transacción que acaba en excepción | ✅ **Revertido**: el plugin participa en la JTA del llamante |
+| Lookup en `@Activate` con el pool aún sin inicializar | ❌ `Failed to lookup pool name __SYSTEM/pools/DerbyPool` (GlassFish inicializa los pools de forma perezosa) |
+| Lookup en `@Activate` con el pool ya inicializado | ✅ Pero no se puede depender del orden: **hay que buscar siempre en el momento de la llamada** |
+| `@PersistenceContext` / `@PersistenceUnit` en un `@Component` | No aplica: son anotaciones del contenedor Jakarta EE, y SCR no las procesa |
+| `EntityManagerFactory` de EclipseLink creada dentro del plugin | No probado (fase 4 de la hoja de ruta) |
+
+Decisión resultante: [ADR-007](adr/ADR-007-persistencia-en-plugins.md).
+
 ## 4. Riesgos abiertos
 
 | Riesgo | Mitigación prevista |
@@ -81,4 +107,4 @@ Esto impide usar la sintaxis `version:List<Version>="1.8,9,..."`. Solución: una
 
 ## 5. Conclusión
 
-El enfoque es **viable sobre GlassFish 8 sin modificar el servidor**. El puente es pequeño (unas 330 líneas de código), solo usa API estándar (CDI 4.1, OSGi core) y cubre el caso de valor: aplicaciones Jakarta EE estables con capacidades de negocio enchufables en caliente. Las dos carencias de GlassFish encontradas (H-1, H-2) tienen solución por configuración y son buenas candidatas para contribuir upstream.
+El enfoque es **viable sobre GlassFish 8 sin modificar el servidor**. El puente es pequeño (unas 450 líneas de código), solo usa API estándar (CDI 4.1, OSGi core) y cubre el caso de valor: aplicaciones Jakarta EE estables con capacidades de negocio enchufables en caliente. Las dos carencias de GlassFish encontradas (H-1, H-2) tienen solución por configuración y son buenas candidatas para contribuir upstream.

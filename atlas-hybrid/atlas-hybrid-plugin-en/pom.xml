@@ -30,6 +30,17 @@
             <artifactId>org.osgi.service.component.annotations</artifactId>
             <scope>provided</scope>
         </dependency>
+
+        <!--
+            Private third-party dependency (and its transitive commons-lang3): compile scope so bnd can
+            embed the packages the plugin really uses. They are NOT exported and NOT deployed separately,
+            so each plugin can carry its own version without clashing with others (see plugin-development.md).
+        -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-text</artifactId>
+            <version>1.13.0</version>
+        </dependency>
     </dependencies>
 
     <build>
@@ -37,6 +48,12 @@
             <plugin>
                 <groupId>biz.aQute.bnd</groupId>
                 <artifactId>bnd-maven-plugin</artifactId>
+                <configuration>
+                    <bnd><![CDATA[
+# Copy into the bundle only the packages of these libraries reachable from the plugin code
+-conditionalpackage: org.apache.commons.text.*, org.apache.commons.lang3.*
+]]></bnd>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

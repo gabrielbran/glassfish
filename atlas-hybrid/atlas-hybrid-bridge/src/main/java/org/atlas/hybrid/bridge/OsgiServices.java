@@ -28,6 +28,18 @@ public final class OsgiServices {
     }
 
     /**
+     * Programmatic equivalent of {@code Instance.select(PluginId.Literal.of(pluginId))}.
+     *
+     * @param contract contract interface loaded from a contract bundle
+     * @param pluginId value of the {@value PluginId#PROPERTY} service property
+     * @return a dynamic proxy to the best service of that plugin; safe with ids coming from user input
+     */
+    public <T> T byPluginId(Class<T> contract, String pluginId) {
+        requireInterface(contract);
+        return contract.cast(registry.proxyForPluginId(contract, PluginId.Literal.of(pluginId).value()));
+    }
+
+    /**
      * @param contract contract interface loaded from a contract bundle
      * @return every service currently registered for the contract, best first
      */

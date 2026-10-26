@@ -5,13 +5,17 @@ Prueba de concepto de una **línea de integración híbrida**: aplicaciones Jaka
 ```java
 @Inject @OsgiService                 // único rastro de OSGi en el código de negocio
 GreetingService greetings;
+
+@Inject @Any
+Instance<GreetingService> byId;      // selección por id de plugin en tiempo de ejecución
+byId.select(PluginId.Literal.of("greeting-en")).get().greet("Ana");
 ```
 
 > Este directorio es un proyecto Maven **independiente del build de GlassFish** (ADR-001): las fusiones desde upstream nunca lo tocan.
 
 ## Estado
 
-✅ Validado sobre la distribución oficial de **Eclipse GlassFish 8.0.5** (Java 21, Felix 7.0.5): 9 tests unitarios sobre Felix embebido y 9 verificaciones extremo a extremo en GlassFish real. Ver [docs/findings.md](docs/findings.md).
+✅ Validado sobre la distribución oficial de **Eclipse GlassFish 8.0.5** (Java 21, Felix 7.0.5): 11 tests unitarios sobre Felix embebido y 14 verificaciones extremo a extremo en GlassFish real. Ver [docs/findings.md](docs/findings.md).
 
 ## Estructura
 

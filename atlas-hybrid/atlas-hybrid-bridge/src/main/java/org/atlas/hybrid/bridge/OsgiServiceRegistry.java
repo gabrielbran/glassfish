@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -55,8 +56,53 @@ final class OsgiServiceRegistry implements AutoCloseable {
      * @return the shared proxy for the key; creating it never touches the OSGi framework
      */
     Object proxyFor(ServiceKey key) {
-        return proxies.computeIfAbsent(key, k -> Proxy.newProxyInstance(
-            k.type().getClassLoader(), new Class<?>[] { k.type() }, new OsgiServiceInvocationHandler(this, k)));
+        return proxies.computeIfAbsent(key, k -> newProxy(k.type(), k.toString(), () -> service(k)));
+    }
+
+    /**
+     * Proxies are not cached here: plugin ids may come from user input and must not grow any map.
+     *
+     * @return a proxy that, on every call, delegates to the best service whose {@value PluginId#PROPERTY}
+     *         property equals {@code pluginId}
+     */
+    Object proxyForPluginId(Class<?> type, String pluginId) {
+        return newProxy(type, type.getName() + " " + PluginId.PROPERTY + "=" + pluginId, () -> serviceByPluginId(type, pluginId));
+    }
+
+    /**
+     * Uses the contract's unfiltered tracker and compares the property value directly: no LDAP filter is
+     * built from the id, and the number of trackers does not depend on the ids requested.
+     *
+     * @return the best service of the contract whose plugin id matches
+     * @throws ServiceUnavailableException if there is none
+     */
+    Object serviceByPluginId(Class<?> type, String pluginId) {
+        ServiceKey key = new ServiceKey(type, "", 0);
+        Tracked tracked = tracker(key);
+        try {
+            ServiceTracker<Object, Object> tracker = tracked.tracker();
+            ServiceReference<Object>[] references = tracker.getServiceReferences();
+            if (references != null) {
+                ServiceReference<Object> best = Arrays.stream(references)
+                    .filter(reference -> pluginId.equals(reference.getProperty(PluginId.PROPERTY)))
+                    .max(Comparator.naturalOrder())
+                    .orElse(null);
+                Object service = best == null ? null : tracker.getService(best);
+                if (service != null) {
+                    return service;
+                }
+            }
+            throw new ServiceUnavailableException("No OSGi service available for " + type.getName() + " with "
+                + PluginId.PROPERTY + "=" + pluginId);
+        } catch (IllegalStateException e) {
+            discard(key, tracked);
+            throw new ServiceUnavailableException("Contract bundle of " + key + " is no longer active", e);
+        }
+    }
+
+    private static Object newProxy(Class<?> type, String description, Supplier<Object> service) {
+        return Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[] { type },
+            new OsgiServiceInvocationHandler(description, service));
     }
 
     /**

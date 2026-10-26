@@ -2,6 +2,7 @@ package org.atlas.hybrid.plugin.en;
 
 import java.util.logging.Logger;
 
+import org.apache.commons.text.WordUtils;
 import org.atlas.hybrid.greeting.api.Greeting;
 import org.atlas.hybrid.greeting.api.GreetingService;
 import org.osgi.framework.BundleContext;
@@ -14,6 +15,9 @@ import org.osgi.service.component.annotations.Deactivate;
  * Second implementation of the same contract with a higher ranking: while this bundle is active it
  * serves every {@code @OsgiService GreetingService} injection point; when it goes away the Spanish
  * plugin takes over again, without touching the application.
+ * <p>
+ * It also shows how a plugin packages its own dependencies: commons-text is embedded with bnd
+ * {@code -conditionalpackage} and stays private to this bundle.
  */
 @Component(service = GreetingService.class, property = {
     EnglishGreetingService.PLUGIN_ID_PROPERTY + "=" + EnglishGreetingService.PLUGIN_ID,
@@ -40,6 +44,7 @@ public class EnglishGreetingService implements GreetingService {
 
     @Override
     public Greeting greet(String name) {
-        return new Greeting("Hello, " + name + "!", PLUGIN_ID, version);
+        // WordUtils comes from commons-text, embedded privately in this bundle
+        return new Greeting("Hello, " + WordUtils.capitalizeFully(name) + "!", PLUGIN_ID, version);
     }
 }

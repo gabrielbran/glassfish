@@ -74,26 +74,37 @@ GreetingService greetings;                       // mejor servicio (mayor servic
 @Inject @OsgiService(filter = "(atlas.plugin.id=greeting-es)", timeout = 5000)
 GreetingService spanish;                         // filtro LDAP + espera de hasta 5 s
 
+@Inject @PluginId("greeting-en")
+GreetingService english;                         // un plugin concreto por su atlas.plugin.id
+
+@Inject @Any
+Instance<GreetingService> byId;                  // plugin elegido en tiempo de ejecución (p. ej. desde la petición)
+GreetingService chosen = byId.select(PluginId.Literal.of(id)).get();
+
 @Inject
 OsgiServices osgi;                               // diagnóstico y acceso programático
 List<ServiceDescriptor> plugins = osgi.describe(GreetingService.class);
+GreetingService same = osgi.byPluginId(GreetingService.class, id);
 ```
+
+`@PluginId` compara el id **literalmente** con la propiedad `atlas.plugin.id`. No construye un filtro LDAP con él, así que es seguro con ids que vienen del usuario, y reutiliza un único tracker por contrato, de modo que pedir ids distintos no hace crecer nada.
 
 ### 5.2 Funcionamiento
 
 1. **Arranque de la aplicación.** La extensión observa `ProcessInjectionPoint` y recoge cada combinación distinta `(tipo, filtro, timeout)` cualificada con `@OsgiService`. En `AfterBeanDiscovery` registra un bean sintético `@Dependent` por cada una. En este punto no se toca el framework OSGi.
-2. **Inyección.** El bean devuelve un **proxy dinámico compartido** (`java.lang.reflect.Proxy`) del contrato. Al no haber client proxy de Weld, no se generan clases en el class loader del bundle.
-3. **Primera llamada.** Se abre un `ServiceTracker` usando el `BundleContext` del bundle que cargó el contrato (`FrameworkUtil.getBundle(contrato)`). Hay un tracker por clave, no por instancia de bean.
-4. **Cada llamada.** El proxy obtiene el mejor servicio disponible en ese momento y delega en él. Si no hay ninguno, falla de inmediato con `ServiceUnavailableException` o espera hasta `timeout` ms.
-5. **Contexto invalidado.** Si el bundle de contrato se detiene, actualiza o desinstala, Felix elimina sus listeners y el tracker dejaría de enterarse de los cambios. Por eso el puente **valida el contexto antes de cada uso** y reabre el tracker si es posible. Si el contrato con el que está enlazada la aplicación ya no existe, devuelve un error claro: "redespliega la aplicación". Este caso lo detectó la PoC (ver [findings.md](findings.md)).
-6. **Parada de la aplicación.** `BeforeShutdown` cierra todos los trackers, para no dejar listeners colgados ni retener el class loader de la aplicación.
+2. **`@PluginId`.** Por cada contrato usado en un `Instance<Contrato>` o en un `@PluginId Contrato` **declarado en clases de la aplicación**, se registra un único bean `@PluginId` (miembro `@Nonbinding`) que lee el id solicitado de su `InjectionPoint`. Weld informa de los qualifiers elegidos con `Instance.select(...)`, comprobado en GlassFish 8.0.5. Los puntos de inyección de las propias librerías de GlassFish se ignoran (findings H-5).
+3. **Inyección.** El bean devuelve un **proxy dinámico compartido** (`java.lang.reflect.Proxy`) del contrato. Al no haber client proxy de Weld, no se generan clases en el class loader del bundle.
+4. **Primera llamada.** Se abre un `ServiceTracker` usando el `BundleContext` del bundle que cargó el contrato (`FrameworkUtil.getBundle(contrato)`). Hay un tracker por clave, no por instancia de bean.
+5. **Cada llamada.** El proxy obtiene el mejor servicio disponible en ese momento y delega en él. Si no hay ninguno, falla de inmediato con `ServiceUnavailableException` o espera hasta `timeout` ms.
+6. **Contexto invalidado.** Si el bundle de contrato se detiene, actualiza o desinstala, Felix elimina sus listeners y el tracker dejaría de enterarse de los cambios. Por eso el puente **valida el contexto antes de cada uso** y reabre el tracker si es posible. Si el contrato con el que está enlazada la aplicación ya no existe, devuelve un error claro: "redespliega la aplicación". Este caso lo detectó la PoC (ver [findings.md](findings.md)).
+7. **Parada de la aplicación.** `BeforeShutdown` cierra todos los trackers, para no dejar listeners colgados ni retener el class loader de la aplicación.
 
 ### 5.3 Garantías y límites
 
 | Garantía | Límite conocido |
 |---|---|
 | Los plugins se instalan, reemplazan y retiran sin redesplegar la aplicación. | **Cambiar el contrato** exige redesplegar los plugins y las aplicaciones que lo usan (ver ADR-003). |
-| Se elige siempre el servicio de mayor `service.ranking`; a igual ranking, el de menor `service.id`. | Solo se procesan los puntos de inyección estáticos. Para búsquedas dinámicas hay que usar `OsgiServices.proxy(...)`. |
+| Se elige siempre el servicio de mayor `service.ranking`; a igual ranking, el de menor `service.id`. | `Instance.select(...)` solo admite `@PluginId`. Para filtros LDAP arbitrarios en tiempo de ejecución está `OsgiServices.proxy(...)`, solo con valores de confianza. |
 | Las excepciones del plugin llegan sin envolver al llamante. | Una llamada en curso puede terminar en un plugin que se está deteniendo, como en cualquier sistema OSGi. |
 | La aplicación arranca aunque no haya plugins; las llamadas devuelven 503. | El contrato debe estar desplegado **antes** que la aplicación, porque se necesitan sus clases para desplegar la WAR. |
 | Ni el código de negocio ni los contratos dependen de OSGi. | El puente es específico de GlassFish/Felix en la forma de obtener el `BundleContext`, aunque solo usa API estándar de OSGi. |
@@ -105,6 +116,7 @@ List<ServiceDescriptor> plugins = osgi.describe(GreetingService.class);
 | **Jakarta EE (CDI, REST, EJB, JPA, JTA)** | Modelo de programación de las aplicaciones y servicios de plataforma | — |
 | **OSGi + Declarative Services** | Plugins de negocio dinámicos y contratos versionados | Reemplazar el modelo de componentes de la aplicación |
 | **HK2** | Extender el servidor (comandos `asadmin`, configuración, monitorización) | Plugins de negocio, porque ata el código a los internals de GlassFish |
+| **JTA / JNDI de GlassFish** | Persistencia de los plugins: `DataSource` por JNDI dentro de la transacción del llamante (ADR-007) | Que los plugins gestionen sus propias transacciones globales |
 | **JCA** (próxima fase) | Integración con sistemas externos con contratos de transacción y seguridad | — |
 
 Ver [ADR-002](adr/ADR-002-osgi-ds-para-plugins.md).
@@ -123,8 +135,8 @@ Orden obligatorio, automatizado en `runtime/deploy.sh`:
 
 | Nivel | Qué cubre | Cómo |
 |---|---|---|
-| Unitario | Ranking, filtros, timeout, excepciones, cierre y contexto invalidado (servicio zombi) | 9 tests con JUnit 5 sobre **Felix 7.0.5 embebido**, el mismo framework que usa GlassFish (`mvn install`) |
-| Extremo a extremo | Instalación, sustitución y retirada en caliente, fallback, 503 y llegada tardía con timeout | `runtime/demo.sh` contra GlassFish real (9 verificaciones) |
+| Unitario | Ranking, filtros, selección por id, timeout, excepciones, cierre y contexto invalidado (servicio zombi) | 11 tests con JUnit 5 sobre **Felix 7.0.5 embebido**, el mismo framework que usa GlassFish (`mvn install`) |
+| Extremo a extremo | Instalación, sustitución y retirada en caliente, fallback, `@PluginId`, dependencias embebidas, 503 y llegada tardía con timeout | `runtime/demo.sh` contra GlassFish real (14 verificaciones) |
 | Pendiente | Baselining de contratos en CI, Arquillian, pruebas de carga y concurrencia durante la sustitución | Ver la hoja de ruta |
 
 ## 9. Hoja de ruta
@@ -135,8 +147,9 @@ Orden obligatorio, automatizado en `runtime/deploy.sh`:
 | **1. Endurecer** | `bnd-baseline-maven-plugin` en los contratos; pipeline de CI que arranque GlassFish y ejecute `demo.sh`; métricas (MicroProfile Metrics / JMX) de llamadas y fallos por contrato; health check de plugins |
 | **2. Configuración** | Plugins configurables con Config Admin (`@Designate` + metatype), que GlassFish ya incluye (`org.apache.felix.configadmin`) |
 | **3. Operación** | Comandos `asadmin atlas-list-plugins` / `atlas-plugin-info` (HK2) y vista en la consola |
-| **4. Integración** | Adaptador JCA de Atlas para sistemas externos; publicación opcional de beans EE como servicios OSGi (dirección inversa) solo si hay un caso real |
-| **5. Comunidad** | Proponer upstream las correcciones encontradas (ver [findings.md](findings.md)) |
+| **4. Persistencia** | Validar JPA dentro de un plugin (EclipseLink con `jtaDataSource`), ver ADR-007 |
+| **5. Integración** | Adaptador JCA de Atlas para sistemas externos; publicación opcional de beans EE como servicios OSGi (dirección inversa) solo si hay un caso real |
+| **6. Comunidad** | Proponer upstream las correcciones encontradas (ver [findings.md](findings.md)) |
 
 ## 10. Documentos relacionados
 
