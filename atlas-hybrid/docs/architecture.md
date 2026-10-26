@@ -159,3 +159,4 @@ Orden obligatorio, automatizado en `runtime/deploy.sh`:
 - [Resultados y hallazgos de la PoC](findings.md)
 - [Guía de operación](operations.md)
 - [Guía para desarrollar un plugin](plugin-development.md)
+- [Seguridad de los password alias](security-password-aliases.md)

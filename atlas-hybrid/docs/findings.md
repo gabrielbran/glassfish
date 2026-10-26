@@ -104,6 +104,15 @@ Decisión resultante: [ADR-007](adr/ADR-007-persistencia-en-plugins.md).
 - Verificado en GlassFish 8.0.5: un alias creado desde la app aparece en `asadmin list-password-aliases`; uno creado con `asadmin --passwordfile … create-password-alias atlas.x` lo lee la app (misma huella SHA-256); las actualizaciones desde la app se reflejan; los alias fuera del espacio de nombres `atlas.` son invisibles e imborrables desde la app.
 - **Observación en el código de GlassFish:** `create-` y `delete-password-alias` declaran `@ExecuteOn(RuntimeType.ALL)`, pero `update-password-alias` declara `@ExecuteOn(RuntimeType.DAS)`. En un clúster, una actualización podría no llegar a las instancias hasta su siguiente sincronización. **No verificado** (la PoC usa solo el DAS). Es candidato a issue upstream (**P-3**) si se confirma.
 
+### H-8. Seguridad del almacén de password alias
+
+Análisis completo en [security-password-aliases.md](security-password-aliases.md). Resumen:
+- Con la master password por defecto (`changeit`), una copia de `domain-passwords.p12` revela todos los alias en claro. Reproducido.
+- `master-password.p12` (`--savemasterpassword`) está protegido por una constante fija en el código (`"master-password"`). Reproducido.
+- **S-1:** `create-domain` descarta la master password recibida por `--passwordfile` y usa `changeit` sin avisar. Reproducido; pendiente de comunicación privada a Eclipse.
+- **S-2:** al escribir un alias, el fichero pasa de `600` a los permisos del `umask` (`644`). Reproducido; pendiente de comunicación privada a Eclipse.
+- Remediaciones verificadas: `change-master-password` no interactivo, master password en el arranque sin guardarla, y `umask 077`. Auditoría automática en `runtime/check-security.sh`.
+
 ## 4. Riesgos abiertos
 
 | Riesgo | Mitigación prevista |
@@ -111,6 +120,7 @@ Decisión resultante: [ADR-007](adr/ADR-007-persistencia-en-plugins.md).
 | Concurrencia durante la sustitución de un plugin bajo carga | Prueba de carga en fase 1 (llamadas concurrentes mientras se hace `deploy`/`undeploy`) |
 | Evolución de contratos sin disciplina semver | `bnd-baseline-maven-plugin` en CI (fase 1) |
 | Dependencia de tres comportamientos internos de GlassFish (API exporter, override por propiedades de sistema, deployer OSGi) | Ejecutar la demo en CI contra cada nueva versión de GlassFish antes de adoptarla |
+| Secretos expuestos por una master password débil o guardada en disco (H-8) | `check-security.sh` obligatorio antes de producción; endurecimiento de security-password-aliases.md |
 | Clústeres e instancias remotas no probados (incluida la replicación de `update-password-alias`, H-7) | Validar `deploy --target <cluster>` con bundles en fase 1 |
 
 ## 5. Conclusión

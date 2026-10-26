@@ -52,6 +52,7 @@ asadmin delete-password-alias atlas.crm.api-key
 - Un secreto de aplicación se puede usar en la configuración del dominio: `${ALIAS=atlas.crm.api-key}`.
 - Cambiar el prefijo: configuración OSGi con PID `org.atlas.hybrid.secrets.glassfish` y propiedad `atlas.secrets.prefix`. **No** renombra los alias existentes.
 - En clúster: `update-password-alias` solo se ejecuta en el DAS (findings H-7). Tras una rotación, verificar las instancias o resincronizarlas.
+- **Antes de producción:** `runtime/check-security.sh` debe pasar sin fallos (master password no por defecto ni guardada en disco, permisos `600`, GlassFish ≥ 8.0.4). Ver [security-password-aliases.md](security-password-aliases.md).
 - Copia de seguridad: los alias viven en `config/domain-passwords.p12` del dominio y se cifran con la *master password*. Inclúyelos en el backup del dominio junto con esa contraseña.
 
 ## 5. Actualizar un contrato (procedimiento obligatorio)

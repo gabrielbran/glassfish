@@ -45,6 +45,7 @@ El ADR-002 prohíbe usar HK2 en plugins de negocio. Pero integrar una capacidad 
 
 - Una aplicación EJB híbrida usa secretos con `@Inject @OsgiService SecretStore`, sin ninguna dependencia de GlassFish.
 - Los secretos creados por las aplicaciones son alias normales: los ve `asadmin list-password-aliases` y se pueden usar como `${ALIAS=atlas.<nombre>}` en la configuración del dominio, por ejemplo en la contraseña de un pool JDBC.
+- **La protección real depende de la master password del dominio.** Con la de fábrica, o guardada con `--savemasterpassword`, una copia del fichero revela todos los secretos. Requisito de producción: [endurecimiento](../security-password-aliases.md) y `runtime/check-security.sh` sin fallos.
 - **Limitación:** el comando admin recibe la contraseña como `String`, una copia inevitable de vida corta.
 - **Pendiente:** validar el comportamiento en clúster, porque `update-password-alias` solo se ejecuta en el DAS (findings H-7).
 

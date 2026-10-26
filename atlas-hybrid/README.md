@@ -27,7 +27,7 @@ byId.select(PluginId.Literal.of("greeting-en")).get().greet("Ana");
 | `atlas-hybrid-secrets-api` | Contrato `SecretStore` para secretos de aplicación |
 | `atlas-hybrid-plugin-secrets-glassfish` | Adaptador de plataforma: `SecretStore` sobre los password alias de GlassFish (ADR-008) |
 | `atlas-hybrid-demo-war` | Aplicación Jakarta EE 11 de ejemplo (REST) |
-| `runtime/` | `configure-domain.sh`, `deploy.sh`, `demo.sh` |
+| `runtime/` | `configure-domain.sh`, `deploy.sh`, `demo.sh`, `check-security.sh` |
 | `docs/` | Arquitectura, ADR, hallazgos, operación y guía de plugins |
 
 ## Inicio rápido
@@ -53,3 +53,4 @@ curl http://localhost:8080/atlas/api/greetings/plugins    # plugins activos, el 
 - [Resultados y hallazgos de la PoC](docs/findings.md)
 - [Guía de operación](docs/operations.md)
 - [Guía para desarrollar un plugin](docs/plugin-development.md)
+- [Seguridad de los password alias](docs/security-password-aliases.md)
