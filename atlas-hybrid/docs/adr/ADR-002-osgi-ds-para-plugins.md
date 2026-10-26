@@ -39,8 +39,9 @@ Además:
 - **Positivas:** los plugins de la PoC no tienen código de infraestructura (solo `@Component`, `@Activate` y `@Deactivate` para trazas); SCR registra y retira los servicios al iniciar y parar el bundle.
 - **Negativas:** el runtime DS forma parte de la instalación de Atlas y hay que actualizarlo, y sus bundles necesitan los perfiles `compact` (ver ADR-005).
 - **Obligatorio:** los plugins de negocio no usan HK2; las extensiones del servidor no se publican como servicios de negocio.
+- **Excepción acotada (ADR-008):** los *adaptadores de plataforma*, plugins cuyo único fin es exponer una capacidad del servidor mediante un contrato neutral (por ejemplo `SecretStore` sobre los password alias), pueden usar internals de GlassFish, con un rango de versión estricto.
 
 ## Verificación
 
 - `runtime/demo.sh`, pasos 1 a 3: los plugins aparecen y desaparecen únicamente con despliegues OSGi.
-- Revisión de código: ningún plugin importa `org.glassfish.hk2` ni `org.jvnet.hk2`.
+- Revisión de código: ningún plugin de negocio importa `org.glassfish.hk2` ni `org.jvnet.hk2` (los adaptadores de plataforma del ADR-008 son la única excepción).

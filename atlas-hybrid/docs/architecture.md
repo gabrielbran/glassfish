@@ -60,6 +60,8 @@ Lo que se busca es:
 | `atlas-hybrid-greeting-api` | Bundle OSGi | `asadmin deploy --type=osgi` | Contrato de negocio de ejemplo. Solo interfaces y tipos de valor, sin dependencias. Paquete versionado (`@Version("1.0.0")`). |
 | `atlas-hybrid-bridge` | JAR (no bundle) | `WEB-INF/lib` de cada aplicación | Extensión CDI portable: `@OsgiService`, proxies dinámicos, `OsgiServices`, `ServiceUnavailableException`. |
 | `atlas-hybrid-plugin-es` / `-en` | Bundles OSGi con componentes DS | `asadmin deploy --type=osgi` | Implementaciones del contrato. Se registran y retiran solas con SCR. |
+| `atlas-hybrid-secrets-api` | Bundle OSGi | `asadmin deploy --type=osgi` | Contrato `SecretStore` (secretos de aplicación como `char[]`). |
+| `atlas-hybrid-plugin-secrets-glassfish` | Bundle OSGi, **adaptador de plataforma** | `asadmin deploy --type=osgi` | `SecretStore` sobre los password alias de GlassFish, confinado al prefijo `atlas.` (ADR-008). Es el único módulo que toca internals de GlassFish. |
 | `atlas-hybrid-demo-war` | WAR Jakarta EE 11 | `asadmin deploy` | Aplicación de ejemplo: REST, mapeo de "plugin no disponible" a HTTP 503 y endpoint de diagnóstico. |
 | `runtime/*.sh` | Scripts | Administración | Preparación del dominio, despliegue ordenado y escenario de demo con verificaciones. |
 
@@ -115,7 +117,7 @@ GreetingService same = osgi.byPluginId(GreetingService.class, id);
 |---|---|---|
 | **Jakarta EE (CDI, REST, EJB, JPA, JTA)** | Modelo de programación de las aplicaciones y servicios de plataforma | — |
 | **OSGi + Declarative Services** | Plugins de negocio dinámicos y contratos versionados | Reemplazar el modelo de componentes de la aplicación |
-| **HK2** | Extender el servidor (comandos `asadmin`, configuración, monitorización) | Plugins de negocio, porque ata el código a los internals de GlassFish |
+| **HK2** | Extender el servidor (comandos `asadmin`, configuración, monitorización) y, dentro de **adaptadores de plataforma**, acceder a capacidades del servidor (ADR-008) | Plugins de negocio, porque ata el código a los internals de GlassFish |
 | **JTA / JNDI de GlassFish** | Persistencia de los plugins: `DataSource` por JNDI dentro de la transacción del llamante (ADR-007) | Que los plugins gestionen sus propias transacciones globales |
 | **JCA** (próxima fase) | Integración con sistemas externos con contratos de transacción y seguridad | — |
 
@@ -135,8 +137,8 @@ Orden obligatorio, automatizado en `runtime/deploy.sh`:
 
 | Nivel | Qué cubre | Cómo |
 |---|---|---|
-| Unitario | Ranking, filtros, selección por id, timeout, excepciones, cierre y contexto invalidado (servicio zombi) | 11 tests con JUnit 5 sobre **Felix 7.0.5 embebido**, el mismo framework que usa GlassFish (`mvn install`) |
-| Extremo a extremo | Instalación, sustitución y retirada en caliente, fallback, `@PluginId`, dependencias embebidas, 503 y llegada tardía con timeout | `runtime/demo.sh` contra GlassFish real (14 verificaciones) |
+| Unitario | Ranking, filtros, selección por id, timeout, excepciones, cierre y contexto invalidado (servicio zombi); espacio de nombres y validación de secretos | 18 tests con JUnit 5 sobre **Felix 7.0.5 embebido**, el mismo framework que usa GlassFish (`mvn install`) |
+| Extremo a extremo | Instalación, sustitución y retirada en caliente, fallback, `@PluginId`, dependencias embebidas, 503, llegada tardía con timeout y password alias desde un EJB | `runtime/demo.sh` contra GlassFish real (24 verificaciones, incluidos los secretos de un EJB híbrido) |
 | Pendiente | Baselining de contratos en CI, Arquillian, pruebas de carga y concurrencia durante la sustitución | Ver la hoja de ruta |
 
 ## 9. Hoja de ruta

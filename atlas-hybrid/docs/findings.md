@@ -19,6 +19,7 @@
 | 9 | Se puede elegir un plugin por id con `@Any Instance<Contrato>` + `select(PluginId.Literal.of(id))` | ✅ Confirmada: Weld pasa los qualifiers seleccionados al `InjectionPoint` del bean sintético (miembro `@Nonbinding`) |
 | 10 | Un plugin puede empaquetar sus propias dependencias sin desplegarlas aparte | ✅ Confirmada: `commons-text` 1.13 (+ `commons-lang3`) embebidas con bnd `-conditionalpackage`, sin exportarlas |
 | 11 | Un plugin puede usar la persistencia del servidor dentro de la transacción de la aplicación | ✅ Confirmada para JDBC: `DataSource` por JNDI dentro de la JTA del llamante, y el rollback revierte el INSERT del plugin (H-6). JPA dentro del plugin: no probado |
+| 12 | Una aplicación EJB híbrida puede guardar y recuperar password alias de GlassFish | ✅ Confirmada: `@Stateless` + `@OsgiService SecretStore`; alta, lectura, actualización y borrado visibles en `asadmin`; alias del servidor aislados (H-7, ADR-008) |
 
 ## 2. Ejecución de la demo (GlassFish 8.0.5)
 
@@ -96,6 +97,13 @@ Se hizo con un plugin de prueba temporal (no incluido en el repositorio) llamado
 
 Decisión resultante: [ADR-007](adr/ADR-007-persistencia-en-plugins.md).
 
+### H-7. Password alias desde aplicaciones (adaptador de plataforma)
+
+- GlassFish 8 no tiene una API pública de password alias para aplicaciones. Internamente: `DomainScopedPasswordAliasStore` (HK2, `@PerLookup`) y los comandos `create/update/delete-password-alias`.
+- El adaptador `atlas-hybrid-plugin-secrets-glassfish` lee del almacén y escribe ejecutando los comandos con `CommandRunner` y `InternalSystemAdministrator`, el mismo patrón que usa GlassFish en su modo embebido. Funciona en un bundle OSGi: los paquetes necesarios (`org.glassfish.api.admin`, `org.glassfish.internal.api`, `com.sun.enterprise.security.store`, `org.glassfish.hk2.api`) están exportados.
+- Verificado en GlassFish 8.0.5: un alias creado desde la app aparece en `asadmin list-password-aliases`; uno creado con `asadmin --passwordfile … create-password-alias atlas.x` lo lee la app (misma huella SHA-256); las actualizaciones desde la app se reflejan; los alias fuera del espacio de nombres `atlas.` son invisibles e imborrables desde la app.
+- **Observación en el código de GlassFish:** `create-` y `delete-password-alias` declaran `@ExecuteOn(RuntimeType.ALL)`, pero `update-password-alias` declara `@ExecuteOn(RuntimeType.DAS)`. En un clúster, una actualización podría no llegar a las instancias hasta su siguiente sincronización. **No verificado** (la PoC usa solo el DAS). Es candidato a issue upstream (**P-3**) si se confirma.
+
 ## 4. Riesgos abiertos
 
 | Riesgo | Mitigación prevista |
@@ -103,7 +111,7 @@ Decisión resultante: [ADR-007](adr/ADR-007-persistencia-en-plugins.md).
 | Concurrencia durante la sustitución de un plugin bajo carga | Prueba de carga en fase 1 (llamadas concurrentes mientras se hace `deploy`/`undeploy`) |
 | Evolución de contratos sin disciplina semver | `bnd-baseline-maven-plugin` en CI (fase 1) |
 | Dependencia de tres comportamientos internos de GlassFish (API exporter, override por propiedades de sistema, deployer OSGi) | Ejecutar la demo en CI contra cada nueva versión de GlassFish antes de adoptarla |
-| Clústeres e instancias remotas no probados | Validar `deploy --target <cluster>` con bundles en fase 1 |
+| Clústeres e instancias remotas no probados (incluida la replicación de `update-password-alias`, H-7) | Validar `deploy --target <cluster>` con bundles en fase 1 |
 
 ## 5. Conclusión
 

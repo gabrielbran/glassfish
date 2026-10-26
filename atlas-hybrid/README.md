@@ -15,7 +15,7 @@ byId.select(PluginId.Literal.of("greeting-en")).get().greet("Ana");
 
 ## Estado
 
-✅ Validado sobre la distribución oficial de **Eclipse GlassFish 8.0.5** (Java 21, Felix 7.0.5): 11 tests unitarios sobre Felix embebido y 14 verificaciones extremo a extremo en GlassFish real. Ver [docs/findings.md](docs/findings.md).
+✅ Validado sobre la distribución oficial de **Eclipse GlassFish 8.0.5** (Java 21, Felix 7.0.5): 18 tests unitarios y 24 verificaciones extremo a extremo en GlassFish real. Ver [docs/findings.md](docs/findings.md).
 
 ## Estructura
 
@@ -24,6 +24,8 @@ byId.select(PluginId.Literal.of("greeting-en")).get().greet("Ana");
 | `atlas-hybrid-greeting-api` | Contrato de ejemplo (bundle OSGi, paquete versionado) |
 | `atlas-hybrid-bridge` | Puente CDI → OSGi (extensión CDI portable, va en `WEB-INF/lib`) |
 | `atlas-hybrid-plugin-es`, `atlas-hybrid-plugin-en` | Plugins de ejemplo (componentes Declarative Services, rankings 10 y 20) |
+| `atlas-hybrid-secrets-api` | Contrato `SecretStore` para secretos de aplicación |
+| `atlas-hybrid-plugin-secrets-glassfish` | Adaptador de plataforma: `SecretStore` sobre los password alias de GlassFish (ADR-008) |
 | `atlas-hybrid-demo-war` | Aplicación Jakarta EE 11 de ejemplo (REST) |
 | `runtime/` | `configure-domain.sh`, `deploy.sh`, `demo.sh` |
 | `docs/` | Arquitectura, ADR, hallazgos, operación y guía de plugins |

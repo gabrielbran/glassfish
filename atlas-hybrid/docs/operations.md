@@ -23,7 +23,7 @@ runtime/demo.sh                      # escenario de verificación (debe terminar
 Comprobaciones:
 
 ```bash
-asadmin list-applications            # 6 módulos <osgi> + atlas-hybrid-demo <web>
+asadmin list-applications            # 8 módulos <osgi> + atlas-hybrid-demo <web>
 asadmin osgi lb | grep -iE "atlas|Declarative"   # todos en estado Active
 curl http://localhost:8080/atlas/api/greetings/plugins
 ```
@@ -39,7 +39,22 @@ curl http://localhost:8080/atlas/api/greetings/plugins
 | Ver el estado de los bundles | `asadmin osgi lb` | — |
 | Actualizar la aplicación | `asadmin deploy --force=true --contextroot=atlas --name=atlas-hybrid-demo app.war` | — |
 
-## 4. Actualizar un contrato (procedimiento obligatorio)
+## 4. Secretos de aplicación (password alias)
+
+Las aplicaciones guardan sus secretos como alias con el prefijo `atlas.` (ADR-008). Desde `asadmin` se gestionan igual que cualquier alias:
+
+```bash
+asadmin list-password-aliases                         # los de las apps empiezan por "atlas."
+asadmin --passwordfile pw.txt create-password-alias atlas.crm.api-key   # pw.txt: AS_ADMIN_ALIASPASSWORD=...
+asadmin delete-password-alias atlas.crm.api-key
+```
+
+- Un secreto de aplicación se puede usar en la configuración del dominio: `${ALIAS=atlas.crm.api-key}`.
+- Cambiar el prefijo: configuración OSGi con PID `org.atlas.hybrid.secrets.glassfish` y propiedad `atlas.secrets.prefix`. **No** renombra los alias existentes.
+- En clúster: `update-password-alias` solo se ejecuta en el DAS (findings H-7). Tras una rotación, verificar las instancias o resincronizarlas.
+- Copia de seguridad: los alias viven en `config/domain-passwords.p12` del dominio y se cifran con la *master password*. Inclúyelos en el backup del dominio junto con esa contraseña.
+
+## 5. Actualizar un contrato (procedimiento obligatorio)
 
 Los contratos **no** se actualizan en caliente (ADR-003). Orden:
 
@@ -50,7 +65,7 @@ Los contratos **no** se actualizan en caliente (ADR-003). Orden:
 
 Entre los pasos 1 y 3, las aplicaciones afectadas responden **503** con el mensaje *"Contract bundle … was uninstalled or replaced. Redeploy the application…"*. Conviene planificarlo en una ventana de mantenimiento o desplegar el contrato con un nombre de paquete nuevo (versión mayor).
 
-## 5. Actualizar GlassFish o el JDK
+## 6. Actualizar GlassFish o el JDK
 
 1. Instalar la nueva versión de GlassFish.
 2. Ejecutar de nuevo `runtime/configure-domain.sh`, porque la opción `org.osgi.framework.system.capabilities` depende de la versión de Java y de GlassFish (ADR-005).
@@ -62,7 +77,7 @@ Entre los pasos 1 y 3, las aplicaciones afectadas responden **503** con el mensa
    asadmin delete-jvm-options -- '<opción con los ":" escapados como "\:">'
    ```
 
-## 6. Diagnóstico
+## 7. Diagnóstico
 
 | Síntoma | Causa probable | Acción |
 |---|---|---|
@@ -71,7 +86,7 @@ Entre los pasos 1 y 3, las aplicaciones afectadas responden **503** con el mensa
 | El dominio no arranca: `MissingResourceException ... bootstrap.log.LogMessages` | Existe `<dominio>/config/osgi.properties` (bug H-2 de GlassFish 8.0.5) | Borrar ese fichero y usar la opción JVM (ADR-005) |
 | Respuesta 503 *"No OSGi service available"* | No hay ningún plugin activo para el contrato o filtro | Desplegar o iniciar el plugin; revisar `asadmin osgi lb` |
 | Respuesta 503 *"... was not loaded from an OSGi bundle"* | La aplicación empaqueta el contrato en `WEB-INF/lib` | Declarar el contrato con `scope provided` (ADR-003) |
-| Respuesta 503 *"... uninstalled or replaced"* | Se actualizó el contrato | Procedimiento de la sección 4 |
+| Respuesta 503 *"... uninstalled or replaced"* | Se actualizó el contrato | Procedimiento de la sección 5 |
 | Plugin en estado `Installed` en `osgi lb` | Su contrato fue redesplegado o falta una dependencia | Redesplegar el plugin; el log del servidor indica la dependencia que falta |
 
 Trazas útiles en `server.log`:
@@ -82,13 +97,13 @@ Trazas útiles en `server.log`:
 
 Para más detalle del puente: `asadmin set-log-levels org.atlas.hybrid.bridge=FINE`.
 
-## 7. Desinstalación
+## 8. Desinstalación
 
 ```bash
 asadmin undeploy atlas-hybrid-demo
-for m in atlas-plugin-en atlas-plugin-es atlas-greeting-api org.apache.felix.scr \
+for m in atlas-plugin-secrets-glassfish atlas-secrets-api atlas-plugin-en atlas-plugin-es atlas-greeting-api org.apache.felix.scr \
          org.osgi.service.component org.osgi.util.promise org.osgi.util.function; do
   asadmin undeploy "$m" || true
 done
-# Opcional: eliminar la opción JVM de capabilities (sección 5.4)
+# Opcional: eliminar la opción JVM de capabilities (sección 6.4)
 ```

@@ -11,6 +11,7 @@ Cada ADR recoge una decisión significativa: su contexto, las alternativas valor
 | [ADR-005](ADR-005-configuracion-dominio-sin-tocar-core.md) | Perfiles `JavaSE/compact` mediante una opción JVM del dominio | Aceptado (provisional, hasta la corrección upstream) |
 | [ADR-006](ADR-006-semantica-de-fallo.md) | Semántica de fallo: fallo inmediato, espera opcional y HTTP 503 | Aceptado |
 | [ADR-007](ADR-007-persistencia-en-plugins.md) | Persistencia en plugins: `DataSource` del servidor por JNDI dentro de la transacción JTA del llamante | Aceptado (JPA en plugin: pendiente de validar) |
+| [ADR-008](ADR-008-secretos-con-password-alias.md) | Secretos de aplicación sobre los password alias de GlassFish, mediante un adaptador de plataforma | Aceptado |
 
 ## Plantilla
 

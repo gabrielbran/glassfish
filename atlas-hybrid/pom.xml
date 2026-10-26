@@ -23,6 +23,8 @@
         <module>atlas-hybrid-bridge</module>
         <module>atlas-hybrid-plugin-es</module>
         <module>atlas-hybrid-plugin-en</module>
+        <module>atlas-hybrid-secrets-api</module>
+        <module>atlas-hybrid-plugin-secrets-glassfish</module>
         <module>atlas-hybrid-demo-war</module>
     </modules>
 
