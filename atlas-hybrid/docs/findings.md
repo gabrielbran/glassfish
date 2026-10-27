@@ -20,6 +20,9 @@
 | 10 | Un plugin puede empaquetar sus propias dependencias sin desplegarlas aparte | ✅ Confirmada: `commons-text` 1.13 (+ `commons-lang3`) embebidas con bnd `-conditionalpackage`, sin exportarlas |
 | 11 | Un plugin puede usar la persistencia del servidor dentro de la transacción de la aplicación | ✅ Confirmada para JDBC: `DataSource` por JNDI dentro de la JTA del llamante, y el rollback revierte el INSERT del plugin (H-6). JPA dentro del plugin: no probado |
 | 12 | Una aplicación EJB híbrida puede guardar y recuperar password alias de GlassFish | ✅ Confirmada: `@Stateless` + `@OsgiService SecretStore`; alta, lectura, actualización y borrado visibles en `asadmin`; alias del servidor aislados (H-7, ADR-008) |
+| 13 | Varias versiones del mismo plugin, cada una con sus dependencias aisladas, pueden convivir | ✅ Confirmada: `rest-client` 1.0.0 (OkHttp 4.12.0) y 2.0.0 (OkHttp 5.3.0) activos a la vez y usados en paralelo por el mismo flujo (ADR-009) |
+| 14 | Un orquestador en memoria puede combinar actividades transaccionales y REST con rollback coherente | ✅ Confirmada: rollback JTA + compensaciones en orden inverso, también si el llamante falla después del flujo (ADR-010, `flows-demo.sh`) |
+| 15 | Un plugin OSGi puede usar `java:comp/TransactionSynchronizationRegistry` y `java:comp/DefaultManagedExecutorService` en el hilo del llamante | ✅ Confirmada en GlassFish 8.0.5; JSON-P (`JsonProvider.provider()`) también funciona desde los bundles |
 
 ## 2. Ejecución de la demo (GlassFish 8.0.5)
 

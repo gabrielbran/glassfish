@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -32,6 +33,9 @@ import org.osgi.util.tracker.ServiceTracker;
 final class OsgiServiceRegistry implements AutoCloseable {
 
     private static final Logger LOG = Logger.getLogger(OsgiServiceRegistry.class.getName());
+    /** Same names as {@code org.atlas.plugin.api.Plugin}: the bridge does not depend on any contract. */
+    static final String ATLAS_PLUGIN_NAME = "atlas.plugin.name";
+    static final String ATLAS_PLUGIN_VERSION = "atlas.plugin.version";
 
     private final Function<Class<?>, BundleContext> contextResolver;
     private final Map<ServiceKey, Tracked> trackers = new ConcurrentHashMap<>();
@@ -66,17 +70,28 @@ final class OsgiServiceRegistry implements AutoCloseable {
      *         property equals {@code pluginId}
      */
     Object proxyForPluginId(Class<?> type, String pluginId) {
-        return newProxy(type, type.getName() + " " + PluginId.PROPERTY + "=" + pluginId, () -> serviceByPluginId(type, pluginId));
+        String description = PluginId.PROPERTY + "=" + pluginId;
+        return newProxy(type, type.getName() + " " + description,
+            () -> serviceMatching(type, description, reference -> pluginId.equals(reference.getProperty(PluginId.PROPERTY))));
     }
 
     /**
-     * Uses the contract's unfiltered tracker and compares the property value directly: no LDAP filter is
-     * built from the id, and the number of trackers does not depend on the ids requested.
+     * @return a proxy that, on every call, delegates to the Atlas plugin with this name and exact version
+     */
+    Object proxyForAtlasPlugin(Class<?> type, String name, String version) {
+        String description = "plugin " + name + "@" + version;
+        return newProxy(type, type.getName() + " " + description, () -> serviceMatching(type, description,
+            reference -> name.equals(reference.getProperty(ATLAS_PLUGIN_NAME)) && version.equals(atlasPluginVersion(reference))));
+    }
+
+    /**
+     * Uses the contract's unfiltered tracker and compares property values directly: no LDAP filter is
+     * built from caller data, and the number of trackers does not depend on the values requested.
      *
-     * @return the best service of the contract whose plugin id matches
+     * @return the best service of the contract that matches
      * @throws ServiceUnavailableException if there is none
      */
-    Object serviceByPluginId(Class<?> type, String pluginId) {
+    Object serviceMatching(Class<?> type, String description, Predicate<ServiceReference<Object>> matches) {
         ServiceKey key = new ServiceKey(type, "", 0);
         Tracked tracked = tracker(key);
         try {
@@ -84,7 +99,7 @@ final class OsgiServiceRegistry implements AutoCloseable {
             ServiceReference<Object>[] references = tracker.getServiceReferences();
             if (references != null) {
                 ServiceReference<Object> best = Arrays.stream(references)
-                    .filter(reference -> pluginId.equals(reference.getProperty(PluginId.PROPERTY)))
+                    .filter(matches)
                     .max(Comparator.naturalOrder())
                     .orElse(null);
                 Object service = best == null ? null : tracker.getService(best);
@@ -92,12 +107,24 @@ final class OsgiServiceRegistry implements AutoCloseable {
                     return service;
                 }
             }
-            throw new ServiceUnavailableException("No OSGi service available for " + type.getName() + " with "
-                + PluginId.PROPERTY + "=" + pluginId);
+            throw new ServiceUnavailableException("No OSGi service available for " + type.getName() + " with " + description);
         } catch (IllegalStateException e) {
             discard(key, tracked);
             throw new ServiceUnavailableException("Contract bundle of " + key + " is no longer active", e);
         }
+    }
+
+    /**
+     * Atlas plugin version: {@code atlas.plugin.version} when set, otherwise the {@code major.minor.micro}
+     * of the providing bundle (same rule as the orchestrator).
+     */
+    static String atlasPluginVersion(ServiceReference<?> reference) {
+        Object explicit = reference.getProperty(ATLAS_PLUGIN_VERSION);
+        if (explicit != null) {
+            return explicit.toString();
+        }
+        org.osgi.framework.Version version = reference.getBundle().getVersion();
+        return version.getMajor() + "." + version.getMinor() + "." + version.getMicro();
     }
 
     private static Object newProxy(Class<?> type, String description, Supplier<Object> service) {

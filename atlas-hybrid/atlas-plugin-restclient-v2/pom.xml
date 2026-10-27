@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.atlas.hybrid</groupId>
+        <artifactId>atlas-hybrid-parent</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>atlas-plugin-restclient-v2</artifactId>
+    <name>Atlas Plugin :: RestClient 2.0.0 (OkHttp 5.3.0)</name>
+    <description>
+        RestClient plugin 2.0.0: connects to an external REST service and returns the response.
+        OkHttp 5.3.0 and its dependencies are embedded under lib/ (Bundle-ClassPath), private to this
+        bundle, so several versions of the plugin can run side by side (ADR-009).
+    </description>
+
+    <properties>
+        <plugin.version>2.0.0</plugin.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.atlas.hybrid</groupId>
+            <artifactId>atlas-plugin-api</artifactId>
+            <version>${project.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.osgi</groupId>
+            <artifactId>osgi.core</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.osgi</groupId>
+            <artifactId>org.osgi.service.component.annotations</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.platform</groupId>
+            <artifactId>jakarta.jakartaee-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- Embedded under lib/: copied by the dependency plugin, listed in Bundle-ClassPath by bnd -->
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp-jvm</artifactId>
+            <version>5.3.0</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <!-- Same code as RestClient 1.0.0: only the embedded OkHttp and the plugin version change -->
+        <sourceDirectory>../atlas-plugin-restclient/src/main/java</sourceDirectory>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <version>3.8.1</version>
+                <executions>
+                    <execution>
+                        <id>embed-plugin-libraries</id>
+                        <phase>compile</phase>
+                        <goals>
+                            <goal>copy-dependencies</goal>
+                        </goals>
+                        <configuration>
+                            <includeScope>runtime</includeScope>
+                            <outputDirectory>${project.build.outputDirectory}/lib</outputDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>biz.aQute.bnd</groupId>
+                <artifactId>bnd-maven-plugin</artifactId>
+                <configuration>
+                    <bnd><![CDATA[
+Bundle-SymbolicName: atlas.plugin.restclient
+Bundle-Version: ${plugin.version}
+# Every jar under lib/ is on the bundle class path: OkHttp, Okio and Kotlin stay private to this bundle
+Bundle-ClassPath: .,${replace;${lsr;${project.build.outputDirectory}/lib;*.jar};.+;lib/$0}
+# Optional TLS/platform integrations OkHttp probes for at runtime: never required
+Import-Package: \
+  android.*;resolution:=optional,\
+  dalvik.*;resolution:=optional,\
+  org.conscrypt.*;resolution:=optional,\
+  org.bouncycastle.*;resolution:=optional,\
+  org.openjsse.*;resolution:=optional,\
+  org.codehaus.mojo.animal_sniffer.*;resolution:=optional,\
+  org.jetbrains.annotations.*;resolution:=optional,\
+  kotlin.reflect.jvm.internal.*;resolution:=optional,\
+  sun.security.ssl;resolution:=optional,\
+  com.oracle.svm.*;resolution:=optional,\
+  *
+-fixupmessages: "Classes found in the wrong directory"
+]]></bnd>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <archive>
+                        <manifestFile>${project.build.outputDirectory}/META-INF/MANIFEST.MF</manifestFile>
+                    </archive>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

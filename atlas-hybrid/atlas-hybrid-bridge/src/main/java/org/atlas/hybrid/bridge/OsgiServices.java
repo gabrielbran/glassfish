@@ -40,6 +40,17 @@ public final class OsgiServices {
     }
 
     /**
+     * Programmatic equivalent of {@code Instance.select(AtlasPlugin.Literal.of(name, version))}.
+     *
+     * @return a dynamic proxy to the Atlas plugin with this name and exact version
+     */
+    public <T> T atlasPlugin(Class<T> contract, String name, String version) {
+        requireInterface(contract);
+        return contract.cast(registry.proxyForAtlasPlugin(contract, AtlasPlugin.Literal.validName(name),
+            AtlasPlugin.Literal.validVersion(version)));
+    }
+
+    /**
      * @param contract contract interface loaded from a contract bundle
      * @return every service currently registered for the contract, best first
      */

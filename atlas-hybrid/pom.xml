@@ -25,6 +25,12 @@
         <module>atlas-hybrid-plugin-en</module>
         <module>atlas-hybrid-secrets-api</module>
         <module>atlas-hybrid-plugin-secrets-glassfish</module>
+        <module>atlas-plugin-api</module>
+        <module>atlas-flow-api</module>
+        <module>atlas-plugin-restclient</module>
+        <module>atlas-plugin-restclient-v2</module>
+        <module>atlas-plugin-database</module>
+        <module>atlas-plugin-orchestrator</module>
         <module>atlas-hybrid-demo-war</module>
     </modules>
 

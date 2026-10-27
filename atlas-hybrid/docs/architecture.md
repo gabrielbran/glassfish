@@ -60,6 +60,11 @@ Lo que se busca es:
 | `atlas-hybrid-greeting-api` | Bundle OSGi | `asadmin deploy --type=osgi` | Contrato de negocio de ejemplo. Solo interfaces y tipos de valor, sin dependencias. Paquete versionado (`@Version("1.0.0")`). |
 | `atlas-hybrid-bridge` | JAR (no bundle) | `WEB-INF/lib` de cada aplicación | Extensión CDI portable: `@OsgiService`, proxies dinámicos, `OsgiServices`, `ServiceUnavailableException`. |
 | `atlas-hybrid-plugin-es` / `-en` | Bundles OSGi con componentes DS | `asadmin deploy --type=osgi` | Implementaciones del contrato. Se registran y retiran solas con SCR. |
+| `atlas-plugin-api` | Bundle OSGi (contrato) | `asadmin deploy --type=osgi` | `Plugin.execute(PluginRequest)`: entrada única de todos los plugins (ADR-009) |
+| `atlas-flow-api` | Bundle OSGi (contrato) | `asadmin deploy --type=osgi` | `FlowEngine` y `FlowResult` |
+| `atlas-plugin-restclient` (1.0.0), `-v2` (2.0.0) | Bundles OSGi, mismo nombre simbólico | `asadmin deploy --type=osgi` | `rest-client`: solo conecta con REST y devuelve la respuesta. OkHttp embebido en `lib/` |
+| `atlas-plugin-database` | Bundle OSGi | `asadmin deploy --type=osgi` | `database`: SQL parametrizado en la transacción JTA |
+| `atlas-plugin-orchestrator` | Bundle OSGi | `asadmin deploy --type=osgi` | `orchestrator`: flujos en memoria, rollback y compensaciones (ADR-010, [orchestrator.md](orchestrator.md)) |
 | `atlas-hybrid-secrets-api` | Bundle OSGi | `asadmin deploy --type=osgi` | Contrato `SecretStore` (secretos de aplicación como `char[]`). |
 | `atlas-hybrid-plugin-secrets-glassfish` | Bundle OSGi, **adaptador de plataforma** | `asadmin deploy --type=osgi` | `SecretStore` sobre los password alias de GlassFish, confinado al prefijo `atlas.` (ADR-008). Es el único módulo que toca internals de GlassFish. |
 | `atlas-hybrid-demo-war` | WAR Jakarta EE 11 | `asadmin deploy` | Aplicación de ejemplo: REST, mapeo de "plugin no disponible" a HTTP 503 y endpoint de diagnóstico. |
@@ -160,3 +165,4 @@ Orden obligatorio, automatizado en `runtime/deploy.sh`:
 - [Guía de operación](operations.md)
 - [Guía para desarrollar un plugin](plugin-development.md)
 - [Seguridad de los password alias](security-password-aliases.md)
+- [Orquestador en memoria](orchestrator.md)

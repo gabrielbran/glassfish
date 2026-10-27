@@ -35,6 +35,18 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
+            <groupId>org.atlas.hybrid</groupId>
+            <artifactId>atlas-plugin-api</artifactId>
+            <version>${project.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.atlas.hybrid</groupId>
+            <artifactId>atlas-flow-api</artifactId>
+            <version>${project.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
             <groupId>jakarta.platform</groupId>
             <artifactId>jakarta.jakartaee-api</artifactId>
             <scope>provided</scope>

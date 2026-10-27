@@ -180,6 +180,33 @@ class OsgiServiceRegistryTest {
     }
 
     @Test
+    void atlasPluginSelectsByNameAndExactVersion() throws Exception {
+        // Two versions of the same plugin, each provided by its own bundle (version taken from the bundle)
+        Bundle v1 = installEmptyBundle("rest", "1.0.0");
+        Bundle v2 = installEmptyBundle("rest", "2.0.0");
+        v1.start();
+        v2.start();
+        v1.getBundleContext().registerService(Greeter.class.getName(), (Greeter) name -> "v1 " + name,
+            new Hashtable<>(Map.of("atlas.plugin.name", "rest-client")));
+        v2.getBundleContext().registerService(Greeter.class.getName(), (Greeter) name -> "v2 " + name,
+            new Hashtable<>(Map.of("atlas.plugin.name", "rest-client")));
+        // Explicit version property wins over the bundle version
+        context.registerService(Greeter.class.getName(), (Greeter) name -> "db " + name,
+            new Hashtable<>(Map.of("atlas.plugin.name", "database", "atlas.plugin.version", "3.1.4")));
+
+        assertEquals("v1 Ana", ((Greeter) registry.proxyForAtlasPlugin(Greeter.class, "rest-client", "1.0.0")).greet("Ana"));
+        assertEquals("v2 Ana", ((Greeter) registry.proxyForAtlasPlugin(Greeter.class, "rest-client", "2.0.0")).greet("Ana"));
+        assertEquals("db Ana", ((Greeter) registry.proxyForAtlasPlugin(Greeter.class, "database", "3.1.4")).greet("Ana"));
+        Greeter missing = (Greeter) registry.proxyForAtlasPlugin(Greeter.class, "rest-client", "1.0.1");
+        assertThrows(ServiceUnavailableException.class, () -> missing.greet("Ana"), "versions are exact, never ranges");
+
+        v1.uninstall();
+        Greeter gone = (Greeter) registry.proxyForAtlasPlugin(Greeter.class, "rest-client", "1.0.0");
+        assertThrows(ServiceUnavailableException.class, () -> gone.greet("Ana"));
+        assertEquals("v2 Ana", ((Greeter) registry.proxyForAtlasPlugin(Greeter.class, "rest-client", "2.0.0")).greet("Ana"));
+    }
+
+    @Test
     void stoppedContractBundleNeverServesStaleServices() throws Exception {
         // Simulates the contract bundle: the tracker listens on its context, as in GlassFish
         Bundle contract = installEmptyBundle("contract");
@@ -211,12 +238,17 @@ class OsgiServiceRegistryTest {
     }
 
     private Bundle installEmptyBundle(String symbolicName) throws Exception {
+        return installEmptyBundle(symbolicName, "0.0.0");
+    }
+
+    private Bundle installEmptyBundle(String symbolicName, String version) throws Exception {
         Manifest manifest = new Manifest();
         Attributes attributes = manifest.getMainAttributes();
         attributes.put(Attributes.Name.MANIFEST_VERSION, "1.0");
         attributes.putValue(Constants.BUNDLE_MANIFESTVERSION, "2");
         attributes.putValue(Constants.BUNDLE_SYMBOLICNAME, symbolicName);
-        Path jar = Files.createTempFile(symbolicName, ".jar");
+        attributes.putValue(Constants.BUNDLE_VERSION, version);
+        Path jar = Files.createTempFile(symbolicName + "-" + version, ".jar");
         try (OutputStream out = new JarOutputStream(Files.newOutputStream(jar), manifest)) {
             // manifest only
         }

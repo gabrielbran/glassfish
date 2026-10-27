@@ -52,6 +52,8 @@ mi-plugin/
 
 ## 2. El componente
 
+> **Plugins de Atlas (ADR-009):** implementan `org.atlas.plugin.api.Plugin` y se registran con `atlas.plugin.name` y `atlas.plugin.description`. La versión es la del bundle (`Bundle-Version`). Ejemplos completos: `RestClientPlugin` y `DatabasePlugin`. El ejemplo de esta sección usa el contrato de demostración `GreetingService`.
+
 ```java
 @Component(service = GreetingService.class, property = {
     "atlas.plugin.id=greeting-fr",                 // identificador estable del plugin
@@ -109,15 +111,18 @@ Resultado verificado en el manifiesto:
 
 **Revisa siempre `Import-Package` del bundle generado** (`unzip -p plugin.jar META-INF/MANIFEST.MF`). Si aparecen paquetes de la librería que no deberían, amplía el patrón. Si aparecen dependencias opcionales que no usas, márcalas como opcionales en el `bnd`: `Import-Package: com.opcional.*;resolution:=optional, *`.
 
-### 4.2 Alternativa: JAR completo en `Bundle-ClassPath` (no probada en la PoC)
+### 4.2 JAR completo en `Bundle-ClassPath` (validada con RestClient y OkHttp; recomendada para librerías Kotlin)
 
 Útil para librerías que cargan recursos o clases por reflexión y no se llevan bien con la copia de paquetes:
 
+Así lo hace `atlas-plugin-restclient`: `maven-dependency-plugin` copia las dependencias de ejecución a `target/classes/lib` y bnd las enumera solas:
+
 ```
--includeresource: lib/mi-libreria.jar=mi-libreria-*.jar;lib:=true
+Bundle-ClassPath: .,${replace;${lsr;${project.build.outputDirectory}/lib;*.jar};.+;lib/$0}
+Import-Package: android.*;resolution:=optional, org.conscrypt.*;resolution:=optional, …, *
 ```
 
-bnd añade el JAR a `Bundle-ClassPath`. El bundle crece con el JAR entero.
+El bundle crece con los JAR enteros (unos 2,8 MB con OkHttp y Kotlin), pero cada versión del plugin lleva **sus** librerías: `rest-client` 1.0.0 (OkHttp 4.12.0) y 2.0.0 (OkHttp 5.3.0) conviven sin interferir (ADR-009).
 
 ### 4.3 Cuándo **no** embeber
 

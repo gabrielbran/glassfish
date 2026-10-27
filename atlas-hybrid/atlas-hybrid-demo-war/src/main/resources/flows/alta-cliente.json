@@ -1,0 +1,76 @@
+{
+  "name": "alta-cliente",
+  "vars": {
+    "mock": "http://localhost:8080/atlas/api/mock",
+    "ds": "jdbc/__default"
+  },
+  "steps": [
+    {
+      "id": "guardar",
+      "plugin": "database@1.0.0",
+      "operation": "update",
+      "params": {
+        "dataSource": "${vars.ds}",
+        "sql": "INSERT INTO ATLAS_CLIENTE (DNI, NOMBRE) VALUES (?, ?)",
+        "args": ["${input.dni}", "${input.nombre}"]
+      }
+    },
+    {
+      "id": "consultas",
+      "timeoutMs": 3000,
+      "parallel": [
+        {
+          "id": "buro",
+          "plugin": "rest-client@1.0.0",
+          "operation": "call",
+          "params": { "url": "${vars.mock}/buro/${input.dni}", "query": { "delayMs": "${input.delayMs}" } }
+        },
+        {
+          "id": "listas",
+          "plugin": "rest-client@2.0.0",
+          "operation": "call",
+          "params": { "url": "${vars.mock}/listas-negras/${input.dni}" }
+        }
+      ],
+      "abortIf": [
+        { "path": "steps.listas.body.encontrado", "equals": true, "message": "Cliente en lista negra" }
+      ]
+    },
+    {
+      "id": "crm",
+      "plugin": "rest-client@2.0.0",
+      "operation": "call",
+      "params": {
+        "method": "POST",
+        "url": "${vars.mock}/crm/clientes",
+        "headers": { "Idempotency-Key": "${execution.id}-crm" },
+        "body": { "dni": "${input.dni}", "nombre": "${input.nombre}", "scoreBuro": "${steps.buro.body.score}" }
+      },
+      "compensation": {
+        "plugin": "rest-client@2.0.0",
+        "operation": "call",
+        "params": { "method": "DELETE", "url": "${vars.mock}/crm/clientes/${steps.crm.body.id}" }
+      }
+    },
+    {
+      "id": "scoring",
+      "plugin": "rest-client@1.0.0",
+      "operation": "call",
+      "params": { "url": "${vars.mock}/scoring/${input.dni}" },
+      "abortIf": [
+        { "path": "steps.scoring.body.resultado", "equals": "RECHAZADO", "message": "Scoring rechazado" }
+      ]
+    },
+    {
+      "id": "notificar",
+      "plugin": "rest-client@2.0.0",
+      "operation": "call",
+      "async": true,
+      "params": {
+        "method": "POST",
+        "url": "${vars.mock}/notificaciones",
+        "body": { "evento": "CLIENTE_ALTA", "dni": "${input.dni}", "crmId": "${steps.crm.body.id}" }
+      }
+    }
+  ]
+}

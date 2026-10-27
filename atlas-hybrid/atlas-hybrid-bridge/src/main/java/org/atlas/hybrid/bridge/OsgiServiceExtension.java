@@ -53,11 +53,12 @@ public class OsgiServiceExtension implements Extension {
             if (type instanceof ParameterizedType parameterized && parameterized.getRawType() == Instance.class
                 && parameterized.getActualTypeArguments()[0] instanceof Class<?> contract && isBundleContract(contract)) {
                 contracts.add(contract);
-            } else if (type instanceof Class<?> contract && qualifier(injectionPoint, PluginId.class) != null) {
+            } else if (type instanceof Class<?> contract
+                && (qualifier(injectionPoint, PluginId.class) != null || qualifier(injectionPoint, AtlasPlugin.class) != null)) {
                 if (isBundleContract(contract)) {
                     contracts.add(contract);
                 } else {
-                    event.addDefinitionError(new DefinitionException("@PluginId requires an interface loaded from an"
+                    event.addDefinitionError(new DefinitionException("@PluginId and @AtlasPlugin require an interface loaded from an"
                         + " OSGi contract bundle, found " + contract.getName() + " at " + injectionPoint.getMember()));
                 }
             }
@@ -89,7 +90,13 @@ public class OsgiServiceExtension implements Extension {
                 .qualifiers(PluginId.Literal.WILDCARD, Any.Literal.INSTANCE)
                 .scope(Dependent.class)
                 .produceWith(instance -> registry.proxyForPluginId(contract, requestedPluginId(instance, contract)));
-            LOG.log(Level.INFO, "Atlas bridge: @PluginId bean registered for {0}", contract.getName());
+            event.addBean()
+                .beanClass(OsgiServiceExtension.class)
+                .types(contract, Object.class)
+                .qualifiers(AtlasPlugin.Literal.WILDCARD, Any.Literal.INSTANCE)
+                .scope(Dependent.class)
+                .produceWith(instance -> requestedAtlasPlugin(instance, contract));
+            LOG.log(Level.INFO, "Atlas bridge: @PluginId and @AtlasPlugin beans registered for {0}", contract.getName());
         }
         event.addBean()
             .beanClass(OsgiServiceExtension.class)
@@ -116,6 +123,18 @@ public class OsgiServiceExtension implements Extension {
                 + ">.select(PluginId.Literal.of(\"<id>\")) or @PluginId(\"<id>\")");
         }
         return pluginId.value();
+    }
+
+    /** Name and version are non binding members: read them from the injection point, then validate. */
+    private Object requestedAtlasPlugin(Instance<Object> instance, Class<?> contract) {
+        InjectionPoint injectionPoint = instance.select(InjectionPoint.class).get();
+        AtlasPlugin plugin = injectionPoint == null ? null : qualifier(injectionPoint, AtlasPlugin.class);
+        if (plugin == null || plugin.name().isBlank()) {
+            throw new IllegalStateException("Select a plugin with @AtlasPlugin(name = \"...\", version = \"x.y.z\") or Instance<"
+                + contract.getSimpleName() + ">.select(AtlasPlugin.Literal.of(name, version))");
+        }
+        return registry.proxyForAtlasPlugin(contract, AtlasPlugin.Literal.validName(plugin.name()),
+            AtlasPlugin.Literal.validVersion(plugin.version()));
     }
 
     private static <A extends Annotation> A qualifier(InjectionPoint injectionPoint, Class<A> type) {

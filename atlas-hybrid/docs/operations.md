@@ -18,12 +18,13 @@ $GLASSFISH_HOME/bin/asadmin start-domain
 runtime/configure-domain.sh          # una sola vez por dominio (reinicia el dominio)
 runtime/deploy.sh                    # runtime DS + contrato + plugin + aplicación
 runtime/demo.sh                      # escenario de verificación (debe terminar con "All expectations met")
+runtime/flows-demo.sh                # escenarios del orquestador (ídem)
 ```
 
 Comprobaciones:
 
 ```bash
-asadmin list-applications            # 8 módulos <osgi> + atlas-hybrid-demo <web>
+asadmin list-applications            # 14 módulos <osgi> + atlas-hybrid-demo <web>
 asadmin osgi lb | grep -iE "atlas|Declarative"   # todos en estado Active
 curl http://localhost:8080/atlas/api/greetings/plugins
 ```
@@ -102,7 +103,7 @@ Para más detalle del puente: `asadmin set-log-levels org.atlas.hybrid.bridge=FI
 
 ```bash
 asadmin undeploy atlas-hybrid-demo
-for m in atlas-plugin-secrets-glassfish atlas-secrets-api atlas-plugin-en atlas-plugin-es atlas-greeting-api org.apache.felix.scr \
+for m in atlas-plugin-orchestrator-1.0.0 atlas-plugin-database-1.0.0 atlas-plugin-restclient-2.0.0 atlas-plugin-restclient-1.0.0 atlas-flow-api atlas-plugin-api atlas-plugin-secrets-glassfish atlas-secrets-api atlas-plugin-en atlas-plugin-es atlas-greeting-api org.apache.felix.scr \
          org.osgi.service.component org.osgi.util.promise org.osgi.util.function; do
   asadmin undeploy "$m" || true
 done
