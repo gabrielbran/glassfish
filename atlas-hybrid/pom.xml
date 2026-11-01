@@ -31,7 +31,9 @@
         <module>atlas-plugin-restclient-v2</module>
         <module>atlas-plugin-database</module>
         <module>atlas-plugin-orchestrator</module>
+        <module>atlas-server-traffic</module>
         <module>atlas-hybrid-demo-war</module>
+        <module>atlas-traffic-demo-war</module>
     </modules>
 
     <properties>

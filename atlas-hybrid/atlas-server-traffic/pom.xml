@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.atlas.hybrid</groupId>
+        <artifactId>atlas-hybrid-parent</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>atlas-server-traffic</artifactId>
+    <name>Atlas Server :: Traffic lifecycle (readiness validation and drain)</name>
+    <description>
+        GlassFish server extension (HK2 module, ADR-011): instance traffic lifecycle STARTING, VALIDATING,
+        READY, DRAINING, DRAINED; read-only validation before accepting load; drain of HTTP requests, JTA
+        transactions (EJB) and JDBC connections; asadmin commands atlas-drain, atlas-undrain,
+        atlas-traffic-status. Uses GlassFish internals: imports pinned to [8.0,9).
+    </description>
+
+    <properties>
+        <glassfish.version>8.0.5</glassfish.version>
+        <hk2.version>4.0.3</hk2.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.glassfish.main.common</groupId>
+            <artifactId>glassfish-api</artifactId>
+            <version>${glassfish.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.glassfish.main.common</groupId>
+            <artifactId>internal-api</artifactId>
+            <version>${glassfish.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.glassfish.main.admin</groupId>
+            <artifactId>config-api</artifactId>
+            <version>${glassfish.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.glassfish.main.resourcebase.resources</groupId>
+            <artifactId>nucleus-resources</artifactId>
+            <version>${glassfish.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.glassfish.main.connectors</groupId>
+            <artifactId>connectors-runtime</artifactId>
+            <version>${glassfish.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.glassfish.main.transaction</groupId>
+            <artifactId>transaction-internal-api</artifactId>
+            <version>${glassfish.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.glassfish.main.microprofile</groupId>
+            <artifactId>microprofile-health</artifactId>
+            <version>${glassfish.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.glassfish.hk2</groupId>
+            <artifactId>hk2-api</artifactId>
+            <version>${hk2.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.glassfish.hk2</groupId>
+            <artifactId>hk2-runlevel</artifactId>
+            <version>${hk2.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <!-- Generates META-INF/hk2-locator/default at compile time -->
+            <groupId>org.glassfish.hk2</groupId>
+            <artifactId>hk2-metadata-generator</artifactId>
+            <version>${hk2.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.platform</groupId>
+            <artifactId>jakarta.jakartaee-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>biz.aQute.bnd</groupId>
+                <artifactId>bnd-maven-plugin</artifactId>
+                <configuration>
+                    <bnd><![CDATA[
+Bundle-SymbolicName: atlas.server.traffic
+Bundle-Version: 1.0.0
+# The drain filter is declared in default-web.xml and loaded by every web application
+Export-Package: org.atlas.traffic.web;version=1.0.0
+]]></bnd>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <archive>
+                        <manifestFile>${project.build.outputDirectory}/META-INF/MANIFEST.MF</manifestFile>
+                    </archive>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

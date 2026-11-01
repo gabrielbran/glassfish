@@ -19,7 +19,7 @@ byId.select(PluginId.Literal.of("greeting-en")).get().greet("Ana");
 
 ## Estado
 
-✅ Validado sobre la distribución oficial de **Eclipse GlassFish 8.0.5** (Java 21, Felix 7.0.5): 31 tests unitarios y 44 verificaciones extremo a extremo en GlassFish real (`demo.sh` 24, `flows-demo.sh` 20). Ver [docs/findings.md](docs/findings.md).
+✅ Validado sobre la distribución oficial de **Eclipse GlassFish 8.0.5** (Java 21, Felix 7.0.5): 38 tests unitarios y 67 verificaciones extremo a extremo en GlassFish real (`demo.sh` 24, `flows-demo.sh` 20, `traffic/traffic-demo.sh` 23 en clúster con HAProxy). Ver [docs/findings.md](docs/findings.md).
 
 ## Estructura
 
@@ -35,8 +35,10 @@ byId.select(PluginId.Literal.of("greeting-en")).get().greet("Ana");
 | `atlas-plugin-restclient`, `-v2` | Plugin `rest-client` **1.0.0 (OkHttp 4.12.0)** y **2.0.0 (OkHttp 5.3.0)**, mismo código, instalables a la vez |
 | `atlas-plugin-database` | Plugin `database` 1.0.0: SQL parametrizado dentro de la transacción JTA |
 | `atlas-plugin-orchestrator` | Plugin `orchestrator` 1.0.0: flujos en memoria con secuencia, paralelo, disparar y olvidar, reglas, rollback y compensaciones (ADR-010) |
+| `atlas-server-traffic` | Extensión del servidor: validación antes de recibir carga y drenaje de HTTP, EJB/JTA y JDBC; comandos `atlas-drain`, `atlas-undrain`, `atlas-traffic-status` (ADR-011) |
+| `atlas-traffic-demo-war` | Aplicación de prueba del ciclo de tráfico (sin dependencias de Atlas) |
 | `atlas-hybrid-demo-war` | Aplicación Jakarta EE 11 de ejemplo (REST) |
-| `runtime/` | `configure-domain.sh`, `deploy.sh`, `demo.sh`, `flows-demo.sh`, `check-security.sh` |
+| `runtime/` | `configure-domain.sh`, `deploy.sh`, `demo.sh`, `flows-demo.sh`, `check-security.sh`; `traffic/`: configuración, HAProxy, reinicio rotatorio y demo del clúster |
 | `docs/` | Arquitectura, ADR, hallazgos, operación y guía de plugins |
 
 ## Inicio rápido
@@ -64,3 +66,4 @@ curl http://localhost:8080/atlas/api/greetings/plugins    # plugins activos, el 
 - [Orquestador en memoria: referencia de la metadata](docs/orchestrator.md)
 - [Guía para desarrollar un plugin](docs/plugin-development.md)
 - [Seguridad de los password alias](docs/security-password-aliases.md)
+- [Ciclo de vida de tráfico: validación y drenaje con HAProxy](docs/traffic.md)

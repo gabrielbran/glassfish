@@ -14,6 +14,7 @@ Cada ADR recoge una decisión significativa: su contexto, las alternativas valor
 | [ADR-008](ADR-008-secretos-con-password-alias.md) | Secretos de aplicación sobre los password alias de GlassFish, mediante un adaptador de plataforma | Aceptado |
 | [ADR-009](ADR-009-modelo-de-plugins.md) | Modelo de plugins: contrato `Plugin`, `@AtlasPlugin` con versión exacta y dependencias embebidas | Aceptado |
 | [ADR-010](ADR-010-orquestacion-en-memoria.md) | Orquestación en memoria: el orquestador coordina, la transacción es del llamante, saga para lo no transaccional | Aceptado (flujos cortos) |
+| [ADR-011](ADR-011-ciclo-de-vida-de-trafico.md) | Ciclo de vida de tráfico: validar antes de recibir carga y drenar antes de parar (HAProxy, clúster) | Aceptado |
 
 ## Plantilla
 

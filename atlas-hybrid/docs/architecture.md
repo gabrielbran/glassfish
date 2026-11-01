@@ -65,6 +65,7 @@ Lo que se busca es:
 | `atlas-plugin-restclient` (1.0.0), `-v2` (2.0.0) | Bundles OSGi, mismo nombre simbólico | `asadmin deploy --type=osgi` | `rest-client`: solo conecta con REST y devuelve la respuesta. OkHttp embebido en `lib/` |
 | `atlas-plugin-database` | Bundle OSGi | `asadmin deploy --type=osgi` | `database`: SQL parametrizado en la transacción JTA |
 | `atlas-plugin-orchestrator` | Bundle OSGi | `asadmin deploy --type=osgi` | `orchestrator`: flujos en memoria, rollback y compensaciones (ADR-010, [orchestrator.md](orchestrator.md)) |
+| `atlas-server-traffic` | Módulo de servidor (HK2) en `glassfish/modules` | Copia a cada nodo + reinicio | Ciclo de vida de tráfico: validación antes de recibir carga, drenaje, comandos `atlas-*` (ADR-011, [traffic.md](traffic.md)) |
 | `atlas-hybrid-secrets-api` | Bundle OSGi | `asadmin deploy --type=osgi` | Contrato `SecretStore` (secretos de aplicación como `char[]`). |
 | `atlas-hybrid-plugin-secrets-glassfish` | Bundle OSGi, **adaptador de plataforma** | `asadmin deploy --type=osgi` | `SecretStore` sobre los password alias de GlassFish, confinado al prefijo `atlas.` (ADR-008). Es el único módulo que toca internals de GlassFish. |
 | `atlas-hybrid-demo-war` | WAR Jakarta EE 11 | `asadmin deploy` | Aplicación de ejemplo: REST, mapeo de "plugin no disponible" a HTTP 503 y endpoint de diagnóstico. |
@@ -166,3 +167,4 @@ Orden obligatorio, automatizado en `runtime/deploy.sh`:
 - [Guía para desarrollar un plugin](plugin-development.md)
 - [Seguridad de los password alias](security-password-aliases.md)
 - [Orquestador en memoria](orchestrator.md)
+- [Ciclo de vida de tráfico](traffic.md)

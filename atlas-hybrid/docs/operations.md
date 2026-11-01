@@ -56,6 +56,8 @@ asadmin delete-password-alias atlas.crm.api-key
 - **Antes de producción:** `runtime/check-security.sh` debe pasar sin fallos (master password no por defecto ni guardada en disco, permisos `600`, GlassFish ≥ 8.0.4). Ver [security-password-aliases.md](security-password-aliases.md).
 - Copia de seguridad: los alias viven en `config/domain-passwords.p12` del dominio y se cifran con la *master password*. Inclúyelos en el backup del dominio junto con esa contraseña.
 
+> **Paradas, parches y despliegues en producción:** nunca `stop-instance` directamente. Usa `atlas-drain` o `runtime/traffic/rolling-restart.sh` (ver [traffic.md](traffic.md)).
+
 ## 5. Actualizar un contrato (procedimiento obligatorio)
 
 Los contratos **no** se actualizan en caliente (ADR-003). Orden:

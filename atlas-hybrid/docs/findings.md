@@ -23,6 +23,7 @@
 | 13 | Varias versiones del mismo plugin, cada una con sus dependencias aisladas, pueden convivir | ✅ Confirmada: `rest-client` 1.0.0 (OkHttp 4.12.0) y 2.0.0 (OkHttp 5.3.0) activos a la vez y usados en paralelo por el mismo flujo (ADR-009) |
 | 14 | Un orquestador en memoria puede combinar actividades transaccionales y REST con rollback coherente | ✅ Confirmada: rollback JTA + compensaciones en orden inverso, también si el llamante falla después del flujo (ADR-010, `flows-demo.sh`) |
 | 15 | Un plugin OSGi puede usar `java:comp/TransactionSynchronizationRegistry` y `java:comp/DefaultManagedExecutorService` en el hilo del llamante | ✅ Confirmada en GlassFish 8.0.5; JSON-P (`JsonProvider.provider()`) también funciona desde los bundles |
+| 16 | Una instancia solo recibe carga cuando está validada, y se puede drenar sin cortar HTTP, EJB/JTA ni JDBC | ✅ Confirmada en clúster con HAProxy: reinicio rotatorio bajo carga con 0 fallos y 0 reenvíos (ADR-011, `traffic-demo.sh`) |
 
 ## 2. Ejecución de la demo (GlassFish 8.0.5)
 
@@ -116,6 +117,41 @@ Análisis completo en [security-password-aliases.md](security-password-aliases.m
 - **S-2:** al escribir un alias, el fichero pasa de `600` a los permisos del `umask` (`644`). Reproducido; pendiente de comunicación privada a Eclipse.
 - Remediaciones verificadas: `change-master-password` no interactivo, master password en el arranque sin guardarla, y `umask 077`. Auditoría automática en `runtime/check-security.sh`.
 
+### H-9. MicroProfile Health no funciona en las instancias de un clúster (bug de GlassFish 8.0.5)
+
+- **Síntoma:** en las instancias, `/health/ready` responde **500** con `NullPointerException` en `HealthServlet` (`ServiceLocator.getService(HealthReporter)` devuelve `null`). En el DAS funciona.
+- **Causa:** el servicio `healthcheck-service`, que registra `HealthReporter`, no llega a arrancar en las instancias. Como las aplicaciones obtienen el reporter al desplegarse (`Globals.get`), **sus checks `@Readiness` tampoco se registran**.
+- **Solución en Atlas:** `HealthReporterBootstrap`, en el primer *run level*, registra el reporter igual que lo hace GlassFish (ADR-011).
+- **Propuesta upstream P-4:** issue con la reproducción (clúster de una instancia + `curl :<puerto>/health/ready`).
+
+### H-10. `/health/ready` responde UP antes de cargar las aplicaciones
+
+- **Síntoma:** al arrancar una instancia, HAProxy la incorporó y **32 de 402 peticiones recibieron 404** (aplicación aún no cargada).
+- **Causa:** sin checks registrados, MicroProfile Health responde UP por defecto (`mp.health.default.readiness.empty.response`), y las aplicaciones registran los suyos al cargarse.
+- **Solución:** el check `atlas-traffic` se registra en el primer *run level* y responde DOWN (STARTING) hasta validar. Tras el cambio: 0 fallos.
+
+### H-11. Los sondeos de salud compiten con el negocio: el balanceador puede expulsar la última instancia sana
+
+- **Síntoma:** durante un reinicio, con todo el tráfico en una instancia, HAProxy la marcó DOWN y devolvió **10 670 respuestas 503 en 3 s** (sin servidores disponibles).
+- **Causa:** el `http-thread-pool` de GlassFish tiene **5 hilos por defecto**; con peticiones largas los sondeos de `/health/ready` se encolan y expiran.
+- **Solución:** listener de salud dedicado con su propio pool (`health-listener`, 1–2 hilos), sondeado por HAProxy con `check port`. Además, dimensionar `http-thread-pool` para producción.
+
+### H-12. HAProxy reenvía peticiones no idempotentes cortadas: ejecución duplicada
+
+- **Síntoma:** al parar una instancia sin drenar, HAProxy reenvió 5 peticiones cortadas a la otra (`wretr=5`, `wredis=5`). Para un POST, eso significa ejecutar la operación de negocio dos veces, sin que el cliente lo vea.
+- **Solución:** `http-request disable-l7-retry` para métodos que no sean GET, HEAD u OPTIONS. Tras el cambio, sin drenaje fallan 3 POST de 77 (visibles) y con drenaje, **0**.
+
+### H-13. Tras una caída de la BD, los pools conservan conexiones muertas; la validación `meta-data` no basta
+
+- **Síntoma:** al volver la BD, una instancia no salía de VALIDATING ("No current connection") y otra instancia en servicio respondió **500** al usar una conexión muerta.
+- **Causa:** pool sin validación, o con `meta-data` (el cliente Derby responde sin ir al servidor).
+- **Solución:** `custom-validation` con el validador de GlassFish para cada base de datos (`OracleConnectionValidation` en producción) + `fail-all-connections`. La validación de solo lectura de Atlas detecta este estado antes de admitir carga.
+
+### H-14. `stop-instance` interrumpe las transacciones en curso
+
+- **Medido:** un POST transaccional de 4 s en curso → **HTTP 500**; uno de 12 s → conexión cortada a los ~4 s. GlassFish no espera al trabajo en curso ni permite suspender el contenedor EJB (`EjbApplication.suspend()`: "Not (yet) supported").
+- **Solución:** `atlas-drain` antes de cualquier parada (ADR-011). Verificado: transacciones de 6 s y 10 s completadas con 200 durante el drenaje.
+
 ## 4. Riesgos abiertos
 
 | Riesgo | Mitigación prevista |
@@ -124,6 +160,7 @@ Análisis completo en [security-password-aliases.md](security-password-aliases.m
 | Evolución de contratos sin disciplina semver | `bnd-baseline-maven-plugin` en CI (fase 1) |
 | Dependencia de tres comportamientos internos de GlassFish (API exporter, override por propiedades de sistema, deployer OSGi) | Ejecutar la demo en CI contra cada nueva versión de GlassFish antes de adoptarla |
 | Secretos expuestos por una master password débil o guardada en disco (H-8) | `check-security.sh` obligatorio antes de producción; endurecimiento de security-password-aliases.md |
+| Distribuir el módulo de tráfico a cada nodo y revalidarlo con cada versión de GlassFish (APIs internas) | `traffic-demo.sh` como prueba de regresión de cada actualización |
 | Clústeres e instancias remotas no probados (incluida la replicación de `update-password-alias`, H-7) | Validar `deploy --target <cluster>` con bundles en fase 1 |
 
 ## 5. Conclusión
